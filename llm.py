@@ -52,29 +52,38 @@ def completer(prompt: str, llm: dict | None, max_tokens: int, temperature: float
     headers = {"Authorization": f"Bearer {cle}"}
     payload = {"model": modele, "temperature": temperature, "max_tokens": max_tokens,
                "messages": [{"role": "user", "content": prompt}]}
-    with httpx.Client(timeout=120) as c:
-        for tentative in (1, 2):
-            r = c.post(f"{base}/chat/completions", json=payload, headers=headers)
-            if r.status_code == 429 and tentative == 1:
-                time.sleep(3)
-                continue
-            if r.status_code == 429:
-                raise ErreurLLM("Modèle gratuit saturé (429) — réessaie dans un instant ou fournis ta propre clé.")
-            if r.status_code >= 400:
-                raise ErreurLLM(f"Erreur fournisseur ({r.status_code}) : {r.text[:200]}")
-            data = r.json()
-            contenu = (data.get("choices") or [{}])[0].get("message", {}).get("content")
-            if not contenu:
-                raise ErreurLLM("Le modèle a renvoyé une réponse vide.")
-            return contenu.strip()
-    raise ErreurLLM("Modèle gratuit saturé — réessaie dans un instant ou fournis ta propre clé.")
+    try:
+        with httpx.Client(timeout=120) as c:
+            for tentative in (1, 2):
+                r = c.post(f"{base}/chat/completions", json=payload, headers=headers)
+                if r.status_code == 429 and tentative == 1:
+                    time.sleep(3)
+                    continue
+                if r.status_code == 429:
+                    raise ErreurLLM("Modèle gratuit saturé (429) — réessaie dans un instant ou fournis ta propre clé.")
+                if r.status_code >= 400:
+                    raise ErreurLLM(f"Erreur fournisseur ({r.status_code}) : {r.text[:200]}")
+                data = r.json()
+                contenu = (data.get("choices") or [{}])[0].get("message", {}).get("content")
+                if not contenu:
+                    raise ErreurLLM("Le modèle a renvoyé une réponse vide.")
+                return contenu.strip()
+    except httpx.HTTPError as e:
+        raise ErreurLLM(f"Fournisseur LLM injoignable : {str(e)[:150]}") from e
+    except ValueError as e:
+        raise ErreurLLM(f"Réponse du fournisseur illisible : {str(e)[:150]}") from e
 
 
 def lister_modeles(base_url: str, cle: str) -> list[str]:
     """Liste les modèles disponibles chez un fournisseur OpenAI-compatible (BYOK)."""
     headers = {"Authorization": f"Bearer {cle}"}
-    with httpx.Client(timeout=15) as c:
-        r = c.get(f"{base_url.rstrip('/')}/models", headers=headers)
-        r.raise_for_status()
-        data = r.json()
+    try:
+        with httpx.Client(timeout=15) as c:
+            r = c.get(f"{base_url.rstrip('/')}/models", headers=headers)
+            r.raise_for_status()
+            data = r.json()
+    except httpx.HTTPError as e:
+        raise ErreurLLM(f"Impossible de récupérer les modèles : {str(e)[:150]}") from e
+    except ValueError as e:
+        raise ErreurLLM(f"Réponse du fournisseur illisible : {str(e)[:150]}") from e
     return sorted([m["id"] for m in data.get("data", []) if m.get("id")], key=lambda x: x.lower())

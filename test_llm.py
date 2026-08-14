@@ -84,3 +84,26 @@ def test_lister_modeles_trie_les_ids(monkeypatch):
     monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
 
     assert llm.lister_modeles("https://api.exemple.com/v1", "sk-x") == ["a-model", "z-model"]
+
+
+def test_completer_erreur_transport_devient_erreurllm(monkeypatch):
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value.post.side_effect = httpx.ConnectError("connection refused")
+    monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
+
+    with pytest.raises(llm.ErreurLLM, match="injoignable"):
+        llm.completer("prompt", {"base_url": "https://api.exemple.com/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+
+
+def test_lister_modeles_erreur_http_devient_erreurllm(monkeypatch):
+    reponse = MagicMock(status_code=401)
+    reponse.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "401 Unauthorized", request=MagicMock(), response=MagicMock(status_code=401)
+    )
+
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value.get.return_value = reponse
+    monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
+
+    with pytest.raises(llm.ErreurLLM, match="Impossible de récupérer les modèles"):
+        llm.lister_modeles("https://api.exemple.com/v1", "sk-x")
