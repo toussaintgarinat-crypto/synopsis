@@ -70,22 +70,21 @@ def transcript_youtube(url: str, langues: list[str] | None = None) -> dict:
             brut = list(api.fetch(video_id, languages=[langue]))
             langue_trouvee = langue
             break
+        except TranscriptsDisabled:
+            # Captions are disabled globally on this video — fail fast
+            raise ErreurExtraction("Les sous-titres sont désactivés sur cette vidéo.")
+        except (NoTranscriptFound, CouldNotRetrieveTranscript):
+            # This language not available, try the next one
+            continue
         except Exception:
+            # Any other exception, try the next language
             continue
 
     if brut is None:
-        try:
-            fetched = api.fetch(video_id)
-            brut = list(fetched)
-            langue_trouvee = getattr(fetched, "language_code", "unknown")
-        except TranscriptsDisabled:
-            raise ErreurExtraction("Les sous-titres sont désactivés sur cette vidéo.")
-        except NoTranscriptFound:
-            raise ErreurExtraction("Aucun sous-titre disponible pour cette vidéo.")
-        except CouldNotRetrieveTranscript as e:
-            raise ErreurExtraction(f"Sous-titres inaccessibles : {str(e)[:150]}")
-        except Exception as e:
-            raise ErreurExtraction(f"Erreur lors de la récupération des sous-titres : {str(e)[:150]}")
+        # No language from the requested list had a transcript
+        raise ErreurExtraction(
+            f"Aucun sous-titre disponible dans les langues demandées ({', '.join(langues)})."
+        )
 
     if not brut:
         raise ErreurExtraction("Aucun sous-titre disponible pour cette vidéo.")

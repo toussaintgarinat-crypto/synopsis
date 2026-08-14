@@ -64,3 +64,22 @@ def test_transcript_youtube_sous_titres_desactives(mock_api_cls):
 
     with pytest.raises(extractor.ErreurExtraction, match="désactivés"):
         extractor.transcript_youtube("https://youtu.be/dQw4w9WgXcQ", langues=["fr"])
+
+
+@patch("extractor.YouTubeTranscriptApi")
+def test_transcript_youtube_aucune_langue_disponible(mock_api_cls):
+    """Aucune des langues demandées n'a de sous-titre (mais pas globalement désactivés)."""
+    from youtube_transcript_api._errors import NoTranscriptFound
+
+    mock_api = MagicMock()
+    # NoTranscriptFound requires: video_id, requested_language_codes, transcript_data
+    mock_api.fetch.side_effect = NoTranscriptFound(
+        "dQw4w9WgXcQ", ["fr", "en"], MagicMock()
+    )
+    mock_api_cls.return_value = mock_api
+
+    with pytest.raises(
+        extractor.ErreurExtraction,
+        match="Aucun sous-titre disponible dans les langues demandées",
+    ):
+        extractor.transcript_youtube("https://youtu.be/dQw4w9WgXcQ", langues=["fr", "en"])
