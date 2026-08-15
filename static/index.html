@@ -434,6 +434,10 @@ function configLLMActuelle() {
   return { base_url, cle, modele };
 }
 
+function escHtml(s) {
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function md(txt) {
   const esc = (txt || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   return esc.split("\n\n").map(p => "<p>" + p
@@ -454,8 +458,8 @@ function blocResultat(d) {
   const div = document.createElement("div");
   div.className = "panel";
   div.innerHTML = `
-    <div class="identite"><div class="nom">${d.titre}</div>
-      <div class="details">${d.duree_minutes.toFixed(1)} min · ${d.langue_source}</div></div>
+    <div class="identite"><div class="nom">${escHtml(d.titre)}</div>
+      <div class="details">${d.duree_minutes.toFixed(1)} min · ${escHtml(d.langue_source)}</div></div>
     <div class="recit">${md(d.rapport)}</div>
     <div class="btns" style="margin-top:14px;">
       <button type="button" class="btn secondary" data-action="html">${t.b_html}</button>
@@ -486,10 +490,48 @@ function blocResultat(d) {
   return div;
 }
 
+// Construit le panneau tel qu'il apparaît dans le fichier HTML exporté (autonome, potentiellement hors-ligne) :
+// contrairement à blocResultat(), qui câble ses boutons via .onclick (invisible une fois sérialisé en .outerHTML),
+// cette version n'inclut que ce qui peut réellement fonctionner dans un fichier téléchargé sans réseau :
+// Imprimer (attribut onclick inline) et Télécharger en Markdown (script réinjecté, données déjà embarquées).
+// Pas de bouton "Télécharger en HTML" (circulaire depuis un export) ni "Poser une question" (nécessite /qa, réseau).
+function construirePanneauExport(d) {
+  const t = I18N[LANGUE];
+  return `
+    <div class="identite"><div class="nom">${escHtml(d.titre)}</div>
+      <div class="details">${d.duree_minutes.toFixed(1)} min · ${escHtml(d.langue_source)}</div></div>
+    <div class="recit">${md(d.rapport)}</div>
+    <div class="btns" style="margin-top:14px;">
+      <button type="button" class="btn secondary" id="export-md-btn">${t.b_md}</button>
+      <button type="button" class="btn secondary" onclick="window.print()">${t.b_pdf}</button>
+    </div>`;
+}
+
+// JSON.stringify n'échappe pas "/" : si le texte contient le littéral de fermeture de balise script,
+// il couperait prématurément la balise <script> lors du parsing HTML du fichier exporté (et même de
+// cette page-ci, embarquée dans son propre <script> !). On neutralise tous les "<" en <.
+function jsonPourScript(v) {
+  return JSON.stringify(v).replace(/</g, "\\u003c");
+}
+
 function telechargerResultatHTML(d) {
   const styles = document.querySelector("style").outerHTML;
-  const html = `<!DOCTYPE html><html lang="${LANGUE}"><head><meta charset="utf-8"><title>${d.titre}</title>${styles}</head>
-    <body><div class="wrap">${blocResultat(d).outerHTML}</div></body></html>`;
+  const panneau = construirePanneauExport(d);
+  const ttScript = `
+<script>
+'use strict';
+const RAPPORT_MD = ${jsonPourScript(d.rapport)};
+const VIDEO_ID = ${jsonPourScript(d.video_id)};
+document.getElementById('export-md-btn').addEventListener('click', () => {
+  const blob = new Blob([RAPPORT_MD], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = \`synopsis-\${VIDEO_ID}.md\`;
+  a.click();
+});
+<\/script>`;
+  const html = `<!DOCTYPE html><html lang="${LANGUE}"><head><meta charset="utf-8"><title>${escHtml(d.titre)}</title>${styles}</head>
+    <body><div class="wrap"><div class="panel">${panneau}</div>${ttScript}</div></body></html>`;
   const blob = new Blob([html], { type: "text/html" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
