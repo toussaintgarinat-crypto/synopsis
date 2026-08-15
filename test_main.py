@@ -161,3 +161,49 @@ def test_resumer_sans_contexte_max_garde_le_defaut(mock_completer, mock_transcri
     assert r.status_code == 200
     _, kwargs = mock_chunk.call_args
     assert kwargs["max_tokens"] == chunker.DEFAULT_MAX_TOKENS
+
+
+@patch("main.chunker.chunk_transcript", return_value=[
+    {"text": "chunk unique", "start": 0.0, "end": 2.0, "tokens": 10}])
+@patch("main.extractor.transcript_youtube", return_value=_transcript_court())
+@patch("main.llm.completer", return_value="## 📝 Résumé Détaillé\nContenu résumé.")
+def test_resumer_contexte_max_hors_bornes_est_ecrete(mock_completer, mock_transcript, mock_chunk):
+    """Finding I1 : un `contexte_max` sous le plancher ou au-dessus du plafond doit
+    être écrêté plutôt que transmis tel quel au chunker — sinon un appelant anonyme
+    peut forcer des centaines de chunks (donc d'appels LLM) sur la clé d'instance."""
+    r = client.post("/resumer", json={
+        "url": "https://youtu.be/dQw4w9WgXcQ", "langue": "Français",
+        "llm": {"contexte_max": 1},
+    })
+    assert r.status_code == 200
+    _, kwargs = mock_chunk.call_args
+    assert kwargs["max_tokens"] == 1000
+
+    mock_chunk.reset_mock()
+    r = client.post("/resumer", json={
+        "url": "https://youtu.be/dQw4w9WgXcQ", "langue": "Français",
+        "llm": {"contexte_max": 999999999},
+    })
+    assert r.status_code == 200
+    _, kwargs = mock_chunk.call_args
+    assert kwargs["max_tokens"] == 200000
+
+
+@patch("main.extractor.transcript_youtube", return_value=_transcript_court())
+def test_resumer_contexte_max_non_numerique_renvoie_422(mock_transcript):
+    """Finding I1 : un `contexte_max` non numérique doit renvoyer une erreur 422
+    propre, pas planter en 500 non géré dans le chunker."""
+    r = client.post("/resumer", json={
+        "url": "https://youtu.be/dQw4w9WgXcQ", "langue": "Français",
+        "llm": {"contexte_max": "abc"},
+    })
+    assert r.status_code == 422
+
+
+@patch("main.llm.lister_modeles", side_effect=main.llm.ErreurLLM("URL de fournisseur refusée (adresse privée/interne).", code=422))
+def test_modeles_ssrf_renvoie_422_pas_502(mock_lister):
+    """Finding I3 : un rejet SSRF (ErreurLLM, code=422) doit ressortir en 422, pas
+    en 502 générique — cohérent avec /resumer et /qa sur la même exception."""
+    r = client.post("/modeles", json={"cle": "sk-x", "base_url": "http://169.254.169.254/"})
+    assert r.status_code == 422
+    assert "privée" in r.json()["detail"]

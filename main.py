@@ -77,6 +77,8 @@ def modeles(body: ModelesBody):
         raise HTTPException(422, "Une URL de base est nécessaire.")
     try:
         return {"modeles": llm.lister_modeles(base, cle)}
+    except llm.ErreurLLM as e:
+        raise HTTPException(e.code, str(e))
     except Exception as e:
         raise HTTPException(502, f"Impossible de récupérer les modèles : {str(e)[:150]}")
 
@@ -89,8 +91,14 @@ def resumer(body: ResumerBody):
     except extractor.ErreurExtraction as e:
         raise HTTPException(422, str(e))
 
-    contexte_max = (body.llm or {}).get("contexte_max")
-    chunks = chunker.chunk_transcript(donnees["transcript"], max_tokens=contexte_max or chunker.DEFAULT_MAX_TOKENS)
+    contexte_max_brut = (body.llm or {}).get("contexte_max")
+    contexte_max = chunker.DEFAULT_MAX_TOKENS
+    if contexte_max_brut is not None:
+        try:
+            contexte_max = max(1000, min(200000, int(contexte_max_brut)))
+        except (TypeError, ValueError):
+            raise HTTPException(422, "contexte_max doit être un entier.")
+    chunks = chunker.chunk_transcript(donnees["transcript"], max_tokens=contexte_max)
     if not chunks:
         raise HTTPException(422, "Transcript vide — impossible de résumer.")
 
