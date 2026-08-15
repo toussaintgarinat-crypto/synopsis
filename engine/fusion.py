@@ -34,7 +34,7 @@ def _extraire_chapitres(analyse: str) -> list[dict]:
     if not m:
         return chapitres
     section = m.group(1)
-    motif_ligne = r"\|\s*\[?(\d{1,3}:\d{2})\]?\s*\|\s*\*?(.+?)\*?\s*\|\s*(.+?)\s*\|"
+    motif_ligne = r"\|\s*\[?((?:\d{1,3}:)?\d{1,3}:\d{2})\]?\s*\|\s*\*?(.+?)\*?\s*\|\s*(.+?)\s*\|"
     for ligne in re.finditer(motif_ligne, section):
         ts_brut = ligne.group(1)
         sujet = ligne.group(2).strip().rstrip("*").lstrip("*")
@@ -42,7 +42,10 @@ def _extraire_chapitres(analyse: str) -> list[dict]:
         if sujet.startswith(":") and desc.startswith(":"):
             continue
         parts = ts_brut.split(":")
-        ts_secondes = int(parts[0]) * 60 + int(parts[1])
+        if len(parts) == 3:
+            ts_secondes = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+        else:
+            ts_secondes = int(parts[0]) * 60 + int(parts[1])
         chapitres.append({"timestamp": ts_brut, "ts_secondes": ts_secondes,
                            "sujet": sujet, "description": desc})
     return chapitres
@@ -58,7 +61,7 @@ def _extraire_insights(analyse: str) -> list[dict]:
     if not m:
         return insights
     section = m.group(1)
-    motif_item = r"\d+\.\s*\*?(.+?)\*?\s*\[?(\d{1,3}:\d{2})\]?\s*:\s*(.+)"
+    motif_item = r"\d+\.\s*\*?(.+?)\*?\s*\[?((?:\d{1,3}:)?\d{1,3}:\d{2})\]?\s*:\s*(.+)"
     for item in re.finditer(motif_item, section):
         insights.append({"titre": item.group(1).strip().rstrip("*").lstrip("*"),
                           "timestamp": item.group(2), "description": item.group(3).strip()})
@@ -89,14 +92,22 @@ def _fusionner_chapitres(listes: list[list[dict]]) -> list[dict]:
 
 
 def _selectionner_top_insights(listes: list[list[dict]], max_insights: int = 3) -> list[dict]:
+    """Sélectionne des insights en tournant entre les chunks (round-robin) pour
+    couvrir toute la vidéo plutôt que de privilégier le début."""
     tous, vus = [], set()
-    for l in listes:
-        for ins in l:
+    restants = [list(l) for l in listes]
+    while len(tous) < max_insights and any(restants):
+        for l in restants:
+            if not l:
+                continue
+            ins = l.pop(0)
             cle = ins.get("titre", "").lower()
             if cle and cle not in vus:
                 vus.add(cle)
                 tous.append(ins)
-    return tous[:max_insights]
+            if len(tous) >= max_insights:
+                break
+    return tous
 
 
 def _table_chapitres_markdown(chapitres: list[dict]) -> str:
@@ -142,7 +153,10 @@ def fusionner(analyses: list[str], titre_video: str, langue: str = "Français",
 
     chapitres_fusionnes = _fusionner_chapitres(listes_chapitres)
     insights_choisis = _selectionner_top_insights(listes_insights)
-    resume_exec = " ".join(execs) if execs else "Analyse de la vidéo."
+    if len(execs) > 2:
+        resume_exec = f"{execs[0]} {execs[-1]}"
+    else:
+        resume_exec = " ".join(execs) if execs else "Analyse de la vidéo."
 
     if corps:
         prompt = _formater(charger_prompt_fusion(), video_title=titre_video,
