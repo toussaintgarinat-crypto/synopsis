@@ -5,8 +5,11 @@ Priorité : BYOK par requête > clé d'instance OpenRouter > OpenCode Go > OpenA
 compatible > repli honnête (erreur explicite, jamais de résumé inventé)."""
 from __future__ import annotations
 
+import ipaddress
 import os
+import socket
 import time
+from urllib.parse import urlparse
 
 import httpx
 
@@ -44,11 +47,30 @@ class ErreurLLM(Exception):
     """Erreur explicite remontée à l'appelant — jamais de contenu inventé en repli."""
 
 
+def _valider_base_url(base_url: str) -> None:
+    """Empêche le SSRF : refuse toute base_url qui résout vers une IP privée/interne."""
+    parsed = urlparse(base_url)
+    if parsed.scheme not in ("http", "https"):
+        raise ErreurLLM("URL de fournisseur invalide (http/https uniquement).")
+    host = parsed.hostname
+    if not host:
+        raise ErreurLLM("URL de fournisseur invalide.")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as e:
+        raise ErreurLLM(f"Impossible de résoudre l'hôte du fournisseur : {str(e)[:100]}")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise ErreurLLM("URL de fournisseur refusée (adresse privée/interne).")
+
+
 def completer(prompt: str, llm: dict | None, max_tokens: int, temperature: float = 0.5) -> str:
     """Un appel chat-completion, avec un seul retry court sur 429."""
     base, cle, modele = config(llm)
     if not cle or not modele:
         raise ErreurLLM("Aucun modèle LLM configuré (ni BYOK, ni clé par défaut de l'instance).")
+    _valider_base_url(base)
     headers = {"Authorization": f"Bearer {cle}"}
     payload = {"model": modele, "temperature": temperature, "max_tokens": max_tokens,
                "messages": [{"role": "user", "content": prompt}]}
@@ -76,6 +98,7 @@ def completer(prompt: str, llm: dict | None, max_tokens: int, temperature: float
 
 def lister_modeles(base_url: str, cle: str) -> list[str]:
     """Liste les modèles disponibles chez un fournisseur OpenAI-compatible (BYOK)."""
+    _valider_base_url(base_url)
     headers = {"Authorization": f"Bearer {cle}"}
     try:
         with httpx.Client(timeout=15) as c:

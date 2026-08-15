@@ -1,10 +1,22 @@
 # test_llm.py
+import socket
 from unittest.mock import MagicMock
 
 import httpx
 import pytest
 
 import llm
+
+
+@pytest.fixture(autouse=True)
+def _dns_publique_par_defaut(monkeypatch):
+    """Évite toute dépendance réseau réelle dans les tests : par défaut,
+    `_valider_base_url` voit l'hôte résoudre vers une IP publique. Les tests
+    SSRF ci-dessous surchargent explicitement ce mock pour simuler une IP privée."""
+    monkeypatch.setattr(
+        llm.socket, "getaddrinfo",
+        lambda host, port: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))],
+    )
 
 
 def test_config_priorite_byok():
@@ -107,3 +119,39 @@ def test_lister_modeles_erreur_http_devient_erreurllm(monkeypatch):
 
     with pytest.raises(llm.ErreurLLM, match="Impossible de récupérer les modèles"):
         llm.lister_modeles("https://api.exemple.com/v1", "sk-x")
+
+
+def test_completer_refuse_ssrf_vers_ip_privee(monkeypatch):
+    monkeypatch.setattr(
+        llm.socket, "getaddrinfo",
+        lambda host, port: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80))],
+    )
+    with pytest.raises(llm.ErreurLLM, match="refusée"):
+        llm.completer("prompt", {"base_url": "http://127.0.0.1:8080/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+
+
+def test_completer_refuse_ssrf_vers_ip_reseau_local(monkeypatch):
+    monkeypatch.setattr(
+        llm.socket, "getaddrinfo",
+        lambda host, port: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 80))],
+    )
+    with pytest.raises(llm.ErreurLLM, match="refusée"):
+        llm.completer("prompt", {"base_url": "http://interne.exemple.com/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+
+
+def test_lister_modeles_refuse_ssrf_vers_ip_privee(monkeypatch):
+    monkeypatch.setattr(
+        llm.socket, "getaddrinfo",
+        lambda host, port: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80))],
+    )
+    with pytest.raises(llm.ErreurLLM, match="refusée"):
+        llm.lister_modeles("http://127.0.0.1:8080/v1", "sk-x")
+
+
+def test_lister_modeles_refuse_ssrf_vers_ip_reseau_local(monkeypatch):
+    monkeypatch.setattr(
+        llm.socket, "getaddrinfo",
+        lambda host, port: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 80))],
+    )
+    with pytest.raises(llm.ErreurLLM, match="refusée"):
+        llm.lister_modeles("http://interne.exemple.com/v1", "sk-x")
