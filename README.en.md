@@ -81,7 +81,10 @@ summary.
 ## Limitations (V1)
 
 - YouTube only (no Twitch/Vimeo/TikTok/file upload) — requires captions
-  (auto-generated or not) on the video.
+  (auto-generated or not) **in one of these 6 languages: French, English,
+  Spanish, German, Italian, Portuguese**. A video whose only captions are in
+  another language will fail explicitly rather than use an unrequested
+  language.
 - No real playlist support (enumerating one would require a YouTube Data API key)
   — paste multiple links instead.
 - No audio transcription (Whisper) — incompatible with a serverless deployment

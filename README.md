@@ -82,7 +82,10 @@ de résumé inventé.
 ## Limites (V1)
 
 - YouTube uniquement (pas Twitch/Vimeo/TikTok/fichiers) — nécessite des
-  sous-titres (auto-générés ou non) sur la vidéo.
+  sous-titres (auto-générés ou non) **dans l'une de ces 6 langues : français,
+  anglais, espagnol, allemand, italien, portugais**. Une vidéo dont les seuls
+  sous-titres sont dans une autre langue échouera explicitement plutôt que
+  d'utiliser une langue non demandée.
 - Pas de vraie playlist YouTube (l'énumération demanderait une clé YouTube Data
   API) — colle plusieurs liens à la place.
 - Pas de transcription audio (Whisper) — incompatible avec un déploiement
