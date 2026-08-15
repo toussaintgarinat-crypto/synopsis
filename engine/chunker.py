@@ -65,6 +65,9 @@ def chunk_transcript(transcript: list[dict], max_tokens: int = DEFAULT_MAX_TOKEN
         chunks.append({"text": create_text_from_transcript(entrees_chunk), "start": debut_chunk,
                         "end": fin_chunk, "tokens": tokens_chunk})
 
+        if position + len(entrees_chunk) >= len(transcript):
+            break
+
         chevauchement = max(1, len(entrees_chunk) // 10)
         prochaine_position = min(position + len(entrees_chunk) - chevauchement, len(transcript) - 1)
         if prochaine_position <= position:
