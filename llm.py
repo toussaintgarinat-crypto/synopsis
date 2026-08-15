@@ -51,7 +51,11 @@ class ErreurLLM(Exception):
 
 
 def _valider_base_url(base_url: str) -> None:
-    """Empêche le SSRF : refuse toute base_url qui résout vers une IP privée/interne."""
+    """Empêche le SSRF le plus courant : refuse toute base_url qui résout vers une
+    IP privée/interne au moment de la validation. Limite connue et acceptée pour
+    l'instant : la résolution DNS n'est pas figée entre cette validation et l'appel
+    HTTP réel — une attaque par DNS rebinding (TTL court, IP publique puis privée)
+    n'est pas couverte."""
     parsed = urlparse(base_url)
     if parsed.scheme not in ("http", "https"):
         raise ErreurLLM("URL de fournisseur invalide (http/https uniquement).")
