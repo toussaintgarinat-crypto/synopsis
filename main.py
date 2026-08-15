@@ -100,12 +100,12 @@ def resumer(body: ResumerBody):
         try:
             analyses.append(llm.completer(prompt, body.llm, max_tokens=4000, temperature=0.5))
         except llm.ErreurLLM as e:
-            raise HTTPException(422, str(e))
+            raise HTTPException(e.code, str(e))
 
     try:
         rapport = fusion.fusionner(analyses, donnees["titre"], body.langue, body.llm)
     except llm.ErreurLLM as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(e.code, str(e))
     return {"video_id": donnees["video_id"], "titre": donnees["titre"],
             "langue_source": donnees["langue"], "duree_minutes": donnees["duree_minutes"],
             "rapport": rapport}
@@ -125,4 +125,4 @@ def qa(body: QaBody):
     try:
         return {"reponse": llm.completer(prompt, body.llm, max_tokens=800, temperature=0.3)}
     except llm.ErreurLLM as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(e.code, str(e))

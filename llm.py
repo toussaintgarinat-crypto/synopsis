@@ -45,6 +45,9 @@ def config(llm: dict | None) -> tuple[str, str, str]:
 
 class ErreurLLM(Exception):
     """Erreur explicite remontée à l'appelant — jamais de contenu inventé en repli."""
+    def __init__(self, message: str, code: int = 422):
+        super().__init__(message)
+        self.code = code
 
 
 def _valider_base_url(base_url: str) -> None:
@@ -82,18 +85,19 @@ def completer(prompt: str, llm: dict | None, max_tokens: int, temperature: float
                     time.sleep(3)
                     continue
                 if r.status_code == 429:
-                    raise ErreurLLM("Modèle gratuit saturé (429) — réessaie dans un instant ou fournis ta propre clé.")
+                    raise ErreurLLM("Modèle gratuit saturé (429) — réessaie dans un instant ou fournis ta propre clé.", code=429)
                 if r.status_code >= 400:
-                    raise ErreurLLM(f"Erreur fournisseur ({r.status_code}) : {r.text[:200]}")
+                    code = 502 if r.status_code >= 500 else 422
+                    raise ErreurLLM(f"Erreur fournisseur ({r.status_code}) : {r.text[:200]}", code=code)
                 data = r.json()
                 contenu = (data.get("choices") or [{}])[0].get("message", {}).get("content")
                 if not contenu:
-                    raise ErreurLLM("Le modèle a renvoyé une réponse vide.")
+                    raise ErreurLLM("Le modèle a renvoyé une réponse vide.", code=502)
                 return contenu.strip()
     except httpx.HTTPError as e:
-        raise ErreurLLM(f"Fournisseur LLM injoignable : {str(e)[:150]}") from e
+        raise ErreurLLM(f"Fournisseur LLM injoignable : {str(e)[:150]}", code=502) from e
     except ValueError as e:
-        raise ErreurLLM(f"Réponse du fournisseur illisible : {str(e)[:150]}") from e
+        raise ErreurLLM(f"Réponse du fournisseur illisible : {str(e)[:150]}", code=502) from e
 
 
 def lister_modeles(base_url: str, cle: str) -> list[str]:
@@ -106,7 +110,7 @@ def lister_modeles(base_url: str, cle: str) -> list[str]:
             r.raise_for_status()
             data = r.json()
     except httpx.HTTPError as e:
-        raise ErreurLLM(f"Impossible de récupérer les modèles : {str(e)[:150]}") from e
+        raise ErreurLLM(f"Impossible de récupérer les modèles : {str(e)[:150]}", code=502) from e
     except ValueError as e:
-        raise ErreurLLM(f"Réponse du fournisseur illisible : {str(e)[:150]}") from e
+        raise ErreurLLM(f"Réponse du fournisseur illisible : {str(e)[:150]}", code=502) from e
     return sorted([m["id"] for m in data.get("data", []) if m.get("id")], key=lambda x: x.lower())

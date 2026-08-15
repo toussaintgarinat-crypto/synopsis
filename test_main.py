@@ -89,14 +89,15 @@ def test_resumer_url_invalide(mock_transcript):
     assert "invalide" in r.json()["detail"]
 
 
-@patch("main.fusion.fusionner", side_effect=main.llm.ErreurLLM("Modèle gratuit saturé — réessaie."))
+@patch("main.fusion.fusionner", side_effect=main.llm.ErreurLLM("Modèle gratuit saturé — réessaie.", code=429))
 @patch("main.extractor.transcript_youtube", return_value=_transcript_court())
 @patch("main.llm.completer", return_value="## 📝 Résumé Détaillé\nContenu résumé.")
-def test_resumer_erreur_fusion_renvoie_422_pas_500(mock_completer, mock_transcript, mock_fusion):
+def test_resumer_erreur_fusion_renvoie_429_pas_500(mock_completer, mock_transcript, mock_fusion):
     """La fusion appelle aussi llm.completer en interne (Task 5) — une erreur LLM à
-    cette étape doit rester un 422 explicite, pas un 500 non géré."""
+    cette étape doit rester une erreur explicite (le code porté par ErreurLLM),
+    pas un 500 non géré."""
     r = client.post("/resumer", json={"url": "https://youtu.be/dQw4w9WgXcQ", "langue": "Français"})
-    assert r.status_code == 422
+    assert r.status_code == 429
     assert "saturé" in r.json()["detail"]
 
 

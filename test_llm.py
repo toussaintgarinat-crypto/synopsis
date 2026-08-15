@@ -44,8 +44,9 @@ def test_completer_leve_si_rien_configure(monkeypatch):
     monkeypatch.setattr(llm, "OPENROUTER_API_KEY", "")
     monkeypatch.setattr(llm, "OPENCODE_GO_API_KEY", "")
     monkeypatch.setattr(llm, "OPENAI_API_KEY", "")
-    with pytest.raises(llm.ErreurLLM, match="Aucun modèle"):
+    with pytest.raises(llm.ErreurLLM, match="Aucun modèle") as exc_info:
         llm.completer("prompt", None, max_tokens=100)
+    assert exc_info.value.code == 422
 
 
 def test_completer_appelle_le_fournisseur(monkeypatch):
@@ -82,8 +83,46 @@ def test_completer_429_persistant_leve_erreur_explicite(monkeypatch):
     monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
     monkeypatch.setattr(llm.time, "sleep", lambda *_: None)
 
-    with pytest.raises(llm.ErreurLLM, match="saturé"):
+    with pytest.raises(llm.ErreurLLM, match="saturé") as exc_info:
         llm.completer("prompt", {"base_url": "https://api.exemple.com/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+    assert exc_info.value.code == 429
+
+
+def test_completer_erreur_5xx_fournisseur_devient_502(monkeypatch):
+    """Une panne côté fournisseur (5xx) est un problème amont, pas la faute de l'appelant."""
+    reponse = MagicMock(status_code=503, text="service unavailable")
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value.post.return_value = reponse
+    monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
+
+    with pytest.raises(llm.ErreurLLM, match="Erreur fournisseur") as exc_info:
+        llm.completer("prompt", {"base_url": "https://api.exemple.com/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+    assert exc_info.value.code == 502
+
+
+def test_completer_erreur_4xx_fournisseur_reste_422(monkeypatch):
+    """Une erreur 4xx du fournisseur (mauvaise clé BYOK, mauvais nom de modèle) reste
+    la faute de l'appelant."""
+    reponse = MagicMock(status_code=400, text="bad request")
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value.post.return_value = reponse
+    monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
+
+    with pytest.raises(llm.ErreurLLM, match="Erreur fournisseur") as exc_info:
+        llm.completer("prompt", {"base_url": "https://api.exemple.com/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+    assert exc_info.value.code == 422
+
+
+def test_completer_reponse_vide_devient_502(monkeypatch):
+    reponse = MagicMock(status_code=200)
+    reponse.json.return_value = {"choices": [{"message": {"content": ""}}]}
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value.post.return_value = reponse
+    monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
+
+    with pytest.raises(llm.ErreurLLM, match="réponse vide") as exc_info:
+        llm.completer("prompt", {"base_url": "https://api.exemple.com/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+    assert exc_info.value.code == 502
 
 
 def test_lister_modeles_trie_les_ids(monkeypatch):
@@ -103,8 +142,9 @@ def test_completer_erreur_transport_devient_erreurllm(monkeypatch):
     mock_client.__enter__.return_value.post.side_effect = httpx.ConnectError("connection refused")
     monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
 
-    with pytest.raises(llm.ErreurLLM, match="injoignable"):
+    with pytest.raises(llm.ErreurLLM, match="injoignable") as exc_info:
         llm.completer("prompt", {"base_url": "https://api.exemple.com/v1", "cle": "sk-x", "modele": "m"}, max_tokens=100)
+    assert exc_info.value.code == 502
 
 
 def test_lister_modeles_erreur_http_devient_erreurllm(monkeypatch):
@@ -117,8 +157,9 @@ def test_lister_modeles_erreur_http_devient_erreurllm(monkeypatch):
     mock_client.__enter__.return_value.get.return_value = reponse
     monkeypatch.setattr(httpx, "Client", lambda **kw: mock_client)
 
-    with pytest.raises(llm.ErreurLLM, match="Impossible de récupérer les modèles"):
+    with pytest.raises(llm.ErreurLLM, match="Impossible de récupérer les modèles") as exc_info:
         llm.lister_modeles("https://api.exemple.com/v1", "sk-x")
+    assert exc_info.value.code == 502
 
 
 def test_completer_refuse_ssrf_vers_ip_privee(monkeypatch):
