@@ -1,2 +1,542 @@
 <!DOCTYPE html>
-<html><head><title>Synopsis</title></head><body>À remplacer en Task 7</body></html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synopsis</title>
+<style>
+  :root {
+    --bg: #0f1220; --panel: #171b2e; --panel2: #1e2338; --border: #2b3050;
+    --text: #eef0fb; --muted: #9aa1c4; --accent: #b98cf7; --accent2: #6ee7c3;
+    --danger: #ff8a8a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: linear-gradient(180deg, var(--bg), #0a0c17 60%); color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 28px 18px 80px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 12px; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  h1 span.emoji { margin-right: .4rem; }
+  .langs { display: flex; gap: 6px; }
+  .langs button {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: .85rem;
+  }
+  .langs button.on { color: var(--text); border-color: var(--accent); background: #2a2350; }
+  p.pitch { color: var(--muted); margin-top: -8px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+  label { display: block; font-size: .82rem; color: var(--muted); margin: 12px 0 4px; }
+  input, select {
+    width: 100%; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 8px; font-size: .95rem;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .ville-row { display: flex; gap: 8px; align-items: end; }
+  .ville-row input { flex: 1; }
+  button.btn {
+    background: linear-gradient(135deg, var(--accent), #7c5cf0); border: none; color: white;
+    padding: 11px 16px; border-radius: 10px; font-size: .95rem; font-weight: 600; cursor: pointer;
+    margin-top: 6px;
+  }
+  button.btn.secondary {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text); font-weight: 500;
+  }
+  button.btn.ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--muted); font-weight: 500;
+    padding: 8px 12px; font-size: .85rem;
+  }
+  button.btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  details.avance { margin-top: 14px; }
+  details.avance summary { cursor: pointer; color: var(--muted); font-size: .85rem; }
+  .stat-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .stat-row .lab { width: 120px; font-size: .82rem; color: var(--muted); }
+  .stat-row .bar-bg { flex: 1; background: var(--panel2); border-radius: 6px; height: 10px; overflow: hidden; }
+  .stat-row .bar-fg { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+  .stat-row .val { width: 34px; text-align: right; font-size: .8rem; color: var(--muted); }
+  .identite { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px; }
+  .identite .nom { font-size: 1.05rem; font-weight: 700; }
+  .identite .details { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .archetype { font-size: 1.25rem; margin: 4px 0 2px; }
+  .sous { color: var(--muted); font-size: .9rem; }
+  .empreinte-item { border-top: 1px solid var(--border); padding: 10px 0; }
+  .empreinte-item .cle { font-size: .78rem; color: var(--accent2); text-transform: uppercase; letter-spacing: .04em; }
+  .empreinte-item .valeur { font-weight: 600; }
+  .empreinte-item .sens { color: var(--muted); font-size: .88rem; }
+  .recit { line-height: 1.65; }
+  .recit p { margin: 0 0 12px; }
+  .recit em { color: var(--muted); }
+  .recit .sep-approfondi { border: none; border-top: 1px dashed var(--border); margin: 24px 0 16px; }
+  .recit .titre-approfondi { font-weight: 600; color: var(--accent, #b8a46a); margin: 0 0 12px; }
+  .badge { display: inline-block; font-size: .72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; margin-left: 8px; }
+  .erreur { color: var(--danger); font-size: .9rem; margin-top: 8px; }
+  footer.mentions { color: var(--muted); font-size: .78rem; text-align: center; margin-top: 30px; }
+  #resultat { display: none; }
+  #llm_base_url[readonly] { opacity: .7; }
+  #btn-voir-cle:hover { color: var(--text); }
+
+  @media print {
+    header .langs, form, details.avance, .btns, footer.mentions { display: none !important; }
+    body { background: white; color: black; }
+    .panel { border: none; padding: 0; }
+    .stat-row .bar-bg { border: 1px solid #999; }
+  }
+
+  /* Tooltip glossaire (écran uniquement) */
+  .glossaire-ic {
+    display: inline-block; margin-left: .3rem; cursor: help; font-size: .72rem;
+    color: var(--accent); opacity: .7; vertical-align: middle; user-select: none;
+    border: 1px solid var(--border); border-radius: 999px; padding: 0 .32rem;
+    line-height: 1.5; transition: opacity .12s, background .12s;
+  }
+  .glossaire-ic:hover, .glossaire-ic:focus-visible, .glossaire-ic.on {
+    opacity: 1; background: #2a2350; outline: none;
+  }
+  .glossaire-pop {
+    position: fixed; z-index: 999; max-width: 320px; min-width: 200px;
+    background: var(--panel2); border: 1px solid var(--accent); color: var(--text);
+    padding: 12px 14px; border-radius: 10px; font-size: .84rem; line-height: 1.5;
+    box-shadow: 0 8px 24px #0008; opacity: 0; transform: translateY(4px);
+    transition: opacity .12s, transform .12s; pointer-events: none;
+  }
+  .glossaire-pop.open { opacity: 1; transform: translateY(0); }
+  .glossaire-pop::before {
+    content: ""; position: absolute; top: -5px; left: 16px; width: 10px; height: 10px;
+    background: var(--panel2); border-left: 1px solid var(--accent);
+    border-top: 1px solid var(--accent); transform: rotate(45deg);
+  }
+  .glossaire-pop .g-titre { font-weight: 600; color: var(--accent2);
+    display: block; margin-bottom: 4px; }
+
+  /* Légende : cachée à l'écran, révélée à l'impression */
+  .legende { display: none; }
+  .legende h3 { margin: 18px 0 6px; font-size: .98rem; color: var(--accent2);
+    border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .legende dl { margin: 4px 0 10px; }
+  .legende dt { font-weight: 600; margin-top: 8px; }
+  .legende dd { margin: 2px 0 8px 0; color: var(--muted); font-size: .86rem;
+    line-height: 1.5; }
+
+  @media print {
+    .glossaire-ic, .glossaire-pop { display: none !important; }
+    .legende { display: block; }
+    .legende dd { color: #333; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="emoji">🎬</span><span data-t="titre">Synopsis</span></h1>
+    <div class="langs">
+      <button id="btn-fr" class="on" onclick="setLangue('fr')">FR</button>
+      <button id="btn-en" onclick="setLangue('en')">EN</button>
+    </div>
+  </header>
+  <p class="pitch" data-t="pitch">Résumé de vidéo YouTube par IA — transcript natif, sans téléchargement ni transcription audio. Chapitres, points clés, gratuit et instantané.</p>
+
+  <div class="panel">
+    <form id="form-resumer">
+      <label data-t="l_url">URL de la vidéo YouTube</label>
+      <input id="url" type="text" placeholder="https://www.youtube.com/watch?v=..." required>
+
+      <label style="margin-top:12px;" data-t="l_langue_resume">Langue du résumé</label>
+      <select id="langue_resume">
+        <option value="Français">Français</option>
+        <option value="English">English</option>
+        <option value="Español">Español</option>
+        <option value="Deutsch">Deutsch</option>
+        <option value="Português">Português</option>
+        <option value="Italiano">Italiano</option>
+      </select>
+
+      <details class="avance">
+        <summary data-t="l_options">Options avancées</summary>
+        <label style="margin-top:16px;" data-t="l_byok">Configuration IA personnelle</label>
+        <p class="sous" style="margin:4px 0 8px;" data-t="l_byok_desc">Votre clé est sauvegardée localement dans votre navigateur. Elle n'est transmise au serveur qu'au moment du résumé.</p>
+        <label data-t="l_fournisseur">Fournisseur</label>
+        <select id="llm_fournisseur">
+          <option value="openrouter">OpenRouter</option>
+          <option value="opencodego">OpenCode Go</option>
+          <option value="openai">OpenAI</option>
+          <option value="custom" data-t="o_custom">Personnalisé</option>
+        </select>
+        <div id="llm_base_url_group">
+          <label style="margin-top:6px;" data-t="l_base_url">URL de l'API</label>
+          <input id="llm_base_url" type="text" placeholder="https://api.openai.com/v1" readonly>
+        </div>
+        <label style="margin-top:6px;" data-t="l_cle">Clé API</label>
+        <div id="llm_cle_wrapper" style="position:relative;">
+          <input id="llm_cle" type="password" placeholder="sk-..." style="padding-right:46px;">
+          <button type="button" onclick="basculerVisibiliteCle()" id="btn-voir-cle" style="position:absolute; right:2px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1.1rem; padding:6px 10px; color:var(--muted); line-height:1;">👁️</button>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+          <label data-t="l_modele" style="margin:0;">Modèle</label>
+          <button type="button" class="btn ghost" onclick="chargerModeles()" data-t="b_charger_modeles" style="font-size:.78rem; padding:4px 10px;">🔄 Charger les modèles</button>
+          <span id="llm-modeles-status" style="font-size:.75rem; color:var(--muted);"></span>
+        </div>
+        <select id="llm_modele_select" style="margin-top:4px; display:none;"><option value="">--</option></select>
+        <input id="llm_modele" type="text" placeholder="gpt-4o-mini">
+        <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+          <span id="llm-status" style="font-size:.78rem; color:var(--accent2);" data-t="l_llm_vide">Aucune config sauvegardée</span>
+          <button type="button" class="btn ghost" onclick="effacerConfigLLM()" data-t="b_effacer_llm" style="margin-left:auto;">🗑️ Effacer</button>
+        </div>
+      </details>
+
+      <details class="avance">
+        <summary data-t="l_multi">Résumer plusieurs vidéos</summary>
+        <p class="sous" style="margin:4px 0 8px;" data-t="l_multi_desc">Colle plusieurs URLs YouTube, une par ligne. Chaque vidéo est résumée séparément.</p>
+        <textarea id="urls_multi" rows="4" style="width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-size:.9rem;" placeholder="https://youtu.be/...&#10;https://youtu.be/..."></textarea>
+        <button type="button" class="btn secondary" style="margin-top:8px;" onclick="resumerPlusieurs()" data-t="b_multi">Résumer toutes ces vidéos</button>
+      </details>
+
+      <div class="btns">
+        <button type="submit" class="btn" data-t="b_resumer">✨ Résumer</button>
+      </div>
+      <div id="erreur" class="erreur"></div>
+    </form>
+  </div>
+
+  <div id="resultats"></div>
+
+  <footer class="mentions" data-t="mentions">Aucune donnée n'est conservée par ce service. Le transcript est lu directement depuis YouTube, rien n'est téléchargé.</footer>
+</div>
+
+<script>
+const I18N = {
+  fr: {
+    titre: "Synopsis",
+    pitch: "Résumé de vidéo YouTube par IA — transcript natif, sans téléchargement ni transcription audio. Chapitres, points clés, gratuit et instantané.",
+    l_options: "Options avancées",
+    l_byok: "Configuration IA personnelle",
+    l_byok_desc: "Votre clé est sauvegardée localement dans votre navigateur. Elle n'est transmise au serveur qu'au moment du résumé.",
+    l_fournisseur: "Fournisseur",
+    l_base_url: "URL de l'API",
+    l_cle: "Clé API",
+    l_modele: "Modèle",
+    o_custom: "Personnalisé",
+    l_llm_sauvegarde: "✓ Config sauvegardée",
+    l_llm_vide: "Aucune config sauvegardée",
+    b_effacer_llm: "🗑️ Effacer",
+    b_charger_modeles: "🔄 Charger les modèles",
+    modeles_charge: "{n} modèles chargés",
+    modeles_erreur: "Erreur lors du chargement",
+    modeles_chargement: "Chargement...",
+    mentions: "Aucune donnée n'est conservée par ce service. Le transcript est lu directement depuis YouTube, rien n'est téléchargé.",
+  },
+  en: {
+    titre: "Synopsis",
+    pitch: "AI YouTube video summaries — native transcript, no download, no audio transcription. Chapters, key points, free and instant.",
+    l_options: "Advanced options",
+    l_byok: "Personal AI configuration",
+    l_byok_desc: "Your key is saved locally in your browser. It is only sent to the server when a summary is requested.",
+    l_fournisseur: "Provider",
+    l_base_url: "API URL",
+    l_cle: "API key",
+    l_modele: "Model",
+    o_custom: "Custom",
+    l_llm_sauvegarde: "✓ Config saved",
+    l_llm_vide: "No saved config",
+    b_effacer_llm: "🗑️ Clear",
+    b_charger_modeles: "🔄 Load models",
+    modeles_charge: "{n} models loaded",
+    modeles_erreur: "Error loading models",
+    modeles_chargement: "Loading...",
+    mentions: "No data is kept by this service. The transcript is read directly from YouTube, nothing is downloaded.",
+  },
+};
+
+let LANGUE = "fr";
+
+const LLM_STORAGE_KEY = "synopsis-llm";
+
+const FOURNISSEURS = {
+  openrouter: { base_url: "https://openrouter.ai/api/v1", label: "OpenRouter" },
+  opencodego:  { base_url: "https://opencode.ai/zen/go/v1", label: "OpenCode Go" },
+  openai:     { base_url: "https://api.openai.com/v1", label: "OpenAI" },
+  custom:     { base_url: "", label: "Personnalisé" },
+};
+
+function changerFournisseur() {
+  const f = document.getElementById("llm_fournisseur").value;
+  const baseInput = document.getElementById("llm_base_url");
+  const baseGroup = document.getElementById("llm_base_url_group");
+  if (f === "custom") {
+    baseInput.readOnly = false;
+    baseInput.placeholder = "https://api.exemple.com/v1";
+    baseGroup.style.display = "";
+  } else {
+    baseInput.value = FOURNISSEURS[f].base_url;
+    baseInput.readOnly = true;
+    baseGroup.style.display = "";
+  }
+  document.getElementById("llm_modele_select").style.display = "none";
+  document.getElementById("llm_modele").style.display = "";
+  document.getElementById("llm-modeles-status").textContent = "";
+  sauvegarderConfigLLM();
+}
+
+function updateModeleDisplay() {
+  const select = document.getElementById("llm_modele_select");
+  const input = document.getElementById("llm_modele");
+  if (select.style.display !== "none") {
+    input.value = select.value;
+  }
+}
+
+async function chargerModeles() {
+  const base_url = document.getElementById("llm_base_url").value.trim();
+  const cle = document.getElementById("llm_cle").value.trim();
+  const statusEl = document.getElementById("llm-modeles-status");
+  if (!base_url || !cle) {
+    statusEl.textContent = I18N[LANGUE].modeles_erreur;
+    return;
+  }
+  statusEl.textContent = I18N[LANGUE].modeles_chargement;
+  try {
+    const r = await fetch(`/modeles?base_url=${encodeURIComponent(base_url)}&cle=${encodeURIComponent(cle)}`);
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    const select = document.getElementById("llm_modele_select");
+    const input = document.getElementById("llm_modele");
+    select.innerHTML = '<option value="">--</option>';
+    d.modeles.forEach(m => { const o = document.createElement("option"); o.value = m; o.textContent = m; select.appendChild(o); });
+    select.style.display = "";
+    input.style.display = "none";
+    select.value = input.value || "";
+    statusEl.textContent = I18N[LANGUE].modeles_charge.replace("{n}", d.modeles.length);
+  } catch (e) {
+    statusEl.textContent = I18N[LANGUE].modeles_erreur;
+    document.getElementById("llm_modele_select").style.display = "none";
+    document.getElementById("llm_modele").style.display = "";
+  }
+}
+
+function chargerConfigLLM() {
+  const raw = localStorage.getItem(LLM_STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const cfg = JSON.parse(raw);
+    if (cfg.fournisseur) document.getElementById("llm_fournisseur").value = cfg.fournisseur;
+    changerFournisseur();
+    if (cfg.base_url) document.getElementById("llm_base_url").value = cfg.base_url;
+    if (cfg.cle) document.getElementById("llm_cle").value = cfg.cle;
+    if (cfg.modele) {
+      document.getElementById("llm_modele").value = cfg.modele;
+      document.getElementById("llm_modele_select").value = cfg.modele;
+    }
+    document.getElementById("llm-status").textContent = I18N[LANGUE].l_llm_sauvegarde;
+  } catch (e) { /* ignore */ }
+}
+
+function sauvegarderConfigLLM() {
+  const fournisseur = document.getElementById("llm_fournisseur").value;
+  let base_url = document.getElementById("llm_base_url").value.trim();
+  if (fournisseur !== "custom") base_url = FOURNISSEURS[fournisseur].base_url;
+  const cle = document.getElementById("llm_cle").value.trim();
+  const modeleSelect = document.getElementById("llm_modele_select");
+  const modele = modeleSelect.style.display !== "none" ? modeleSelect.value : document.getElementById("llm_modele").value.trim();
+  if (!cle && !modele) {
+    localStorage.removeItem(LLM_STORAGE_KEY);
+    document.getElementById("llm-status").textContent = I18N[LANGUE].l_llm_vide;
+    return;
+  }
+  localStorage.setItem(LLM_STORAGE_KEY, JSON.stringify({ fournisseur, base_url, cle, modele }));
+  document.getElementById("llm-status").textContent = I18N[LANGUE].l_llm_sauvegarde;
+}
+
+function effacerConfigLLM() {
+  localStorage.removeItem(LLM_STORAGE_KEY);
+  document.getElementById("llm_fournisseur").value = "openrouter";
+  changerFournisseur();
+  document.getElementById("llm_base_url").value = FOURNISSEURS.openrouter.base_url;
+  document.getElementById("llm_cle").value = "";
+  document.getElementById("llm_modele").value = "";
+  document.getElementById("llm_modele_select").innerHTML = '<option value="">--</option>';
+  document.getElementById("llm_modele_select").style.display = "none";
+  document.getElementById("llm_modele").style.display = "";
+  document.getElementById("llm-modeles-status").textContent = "";
+  document.getElementById("llm-status").textContent = I18N[LANGUE].l_llm_vide;
+}
+
+function basculerVisibiliteCle() {
+  const input = document.getElementById("llm_cle");
+  const btn = document.getElementById("btn-voir-cle");
+  if (input.type === "password") { input.type = "text"; btn.textContent = "🙈"; }
+  else { input.type = "password"; btn.textContent = "👁️"; }
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+}
+const sauvegarderConfigDebounced = debounce(sauvegarderConfigLLM, 500);
+
+document.getElementById("llm_fournisseur").addEventListener("change", changerFournisseur);
+document.getElementById("llm_base_url").addEventListener("input", sauvegarderConfigDebounced);
+document.getElementById("llm_cle").addEventListener("input", sauvegarderConfigDebounced);
+document.getElementById("llm_modele").addEventListener("input", sauvegarderConfigDebounced);
+document.getElementById("llm_modele_select").addEventListener("change", () => { updateModeleDisplay(); sauvegarderConfigLLM(); });
+
+changerFournisseur();
+chargerConfigLLM();
+
+function setLangue(l) {
+  LANGUE = l;
+  document.getElementById("btn-fr").classList.toggle("on", l === "fr");
+  document.getElementById("btn-en").classList.toggle("on", l === "en");
+  document.documentElement.lang = l;
+  document.querySelectorAll("[data-t]").forEach(el => {
+    const cle = el.getAttribute("data-t");
+    if (I18N[l][cle]) el.textContent = I18N[l][cle];
+  });
+  const hasConfig = !!localStorage.getItem(LLM_STORAGE_KEY);
+  document.getElementById("llm-status").textContent = hasConfig ? I18N[l].l_llm_sauvegarde : I18N[l].l_llm_vide;
+  const nbModeles = document.getElementById("llm_modele_select").options.length - 1;
+  if (nbModeles > 0) document.getElementById("llm-modeles-status").textContent = I18N[l].modeles_charge.replace("{n}", nbModeles);
+}
+
+const I18N_SYNOPSIS = {
+  fr: {
+    l_url: "URL de la vidéo YouTube", l_langue_resume: "Langue du résumé",
+    l_multi: "Résumer plusieurs vidéos",
+    l_multi_desc: "Colle plusieurs URLs YouTube, une par ligne. Chaque vidéo est résumée séparément.",
+    b_multi: "Résumer toutes ces vidéos", b_resumer: "✨ Résumer",
+    erreur_generique: "Une erreur est survenue.",
+    b_qa: "Poser la question", l_qa_placeholder: "Une question sur cette vidéo ?",
+    b_html: "⬇️ Télécharger en HTML", b_md: "⬇️ Télécharger en Markdown", b_pdf: "🖨️ Imprimer / Enregistrer en PDF",
+  },
+  en: {
+    l_url: "YouTube video URL", l_langue_resume: "Summary language",
+    l_multi: "Summarize multiple videos",
+    l_multi_desc: "Paste multiple YouTube URLs, one per line. Each video is summarized separately.",
+    b_multi: "Summarize all these videos", b_resumer: "✨ Summarize",
+    erreur_generique: "Something went wrong.",
+    b_qa: "Ask", l_qa_placeholder: "A question about this video?",
+    b_html: "⬇️ Download as HTML", b_md: "⬇️ Download as Markdown", b_pdf: "🖨️ Print / Save as PDF",
+  },
+};
+Object.assign(I18N.fr, I18N_SYNOPSIS.fr);
+Object.assign(I18N.en, I18N_SYNOPSIS.en);
+
+function configLLMActuelle() {
+  const cle = document.getElementById("llm_cle").value.trim();
+  if (!cle) return null;
+  const fournisseur = document.getElementById("llm_fournisseur").value;
+  let base_url = document.getElementById("llm_base_url").value.trim();
+  if (fournisseur !== "custom") base_url = FOURNISSEURS[fournisseur].base_url;
+  const modeleSelect = document.getElementById("llm_modele_select");
+  const modele = modeleSelect.style.display !== "none" ? modeleSelect.value : document.getElementById("llm_modele").value.trim();
+  return { base_url, cle, modele };
+}
+
+function md(txt) {
+  const esc = (txt || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return esc.split("\n\n").map(p => "<p>" + p
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/_(.+?)_/g, "<em>$1</em>") + "</p>").join("");
+}
+
+async function resumerUne(url) {
+  const body = { url, langue: document.getElementById("langue_resume").value, llm: configLLMActuelle() };
+  const r = await fetch("/resumer", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.detail || I18N[LANGUE].erreur_generique);
+  return d;
+}
+
+function blocResultat(d) {
+  const t = I18N[LANGUE];
+  const div = document.createElement("div");
+  div.className = "panel";
+  div.innerHTML = `
+    <div class="identite"><div class="nom">${d.titre}</div>
+      <div class="details">${d.duree_minutes.toFixed(1)} min · ${d.langue_source}</div></div>
+    <div class="recit">${md(d.rapport)}</div>
+    <div class="btns" style="margin-top:14px;">
+      <button type="button" class="btn secondary" data-action="html">${t.b_html}</button>
+      <button type="button" class="btn secondary" data-action="md">${t.b_md}</button>
+      <button type="button" class="btn secondary" data-action="print">${t.b_pdf}</button>
+    </div>
+    <details class="avance" style="margin-top:14px;">
+      <summary>💬 ${t.b_qa}</summary>
+      <input class="qa-question" type="text" placeholder="${t.l_qa_placeholder}">
+      <button type="button" class="btn ghost qa-btn" style="margin-top:8px;">${t.b_qa}</button>
+      <div class="qa-reponse sous" style="margin-top:8px;"></div>
+    </details>`;
+  div.querySelector('[data-action="html"]').onclick = () => telechargerResultatHTML(d);
+  div.querySelector('[data-action="md"]').onclick = () => telechargerResultatMarkdown(d);
+  div.querySelector('[data-action="print"]').onclick = () => window.print();
+  div.querySelector(".qa-btn").onclick = async () => {
+    const question = div.querySelector(".qa-question").value.trim();
+    if (!question) return;
+    const zone = div.querySelector(".qa-reponse");
+    zone.textContent = "…";
+    try {
+      const r = await fetch("/qa", { method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ contexte: d.rapport, question, llm: configLLMActuelle() }) });
+      const rd = await r.json();
+      zone.textContent = r.ok ? rd.reponse : (rd.detail || I18N[LANGUE].erreur_generique);
+    } catch (e) { zone.textContent = I18N[LANGUE].erreur_generique; }
+  };
+  return div;
+}
+
+function telechargerResultatHTML(d) {
+  const styles = document.querySelector("style").outerHTML;
+  const html = `<!DOCTYPE html><html lang="${LANGUE}"><head><meta charset="utf-8"><title>${d.titre}</title>${styles}</head>
+    <body><div class="wrap">${blocResultat(d).outerHTML}</div></body></html>`;
+  const blob = new Blob([html], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `synopsis-${d.video_id}.html`;
+  a.click();
+}
+
+function telechargerResultatMarkdown(d) {
+  const blob = new Blob([d.rapport], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `synopsis-${d.video_id}.md`;
+  a.click();
+}
+
+document.getElementById("form-resumer").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const err = document.getElementById("erreur");
+  err.textContent = "";
+  const zone = document.getElementById("resultats");
+  zone.innerHTML = "";
+  try {
+    const d = await resumerUne(document.getElementById("url").value.trim());
+    zone.appendChild(blocResultat(d));
+  } catch (e) {
+    err.textContent = e.message || I18N[LANGUE].erreur_generique;
+  }
+});
+
+async function resumerPlusieurs() {
+  const urls = document.getElementById("urls_multi").value.split("\n").map(u => u.trim()).filter(Boolean);
+  const zone = document.getElementById("resultats");
+  zone.innerHTML = "";
+  for (const url of urls) {
+    const placeholder = document.createElement("div");
+    placeholder.className = "panel";
+    placeholder.textContent = `${url} — …`;
+    zone.appendChild(placeholder);
+    try {
+      const d = await resumerUne(url);
+      zone.replaceChild(blocResultat(d), placeholder);
+    } catch (e) {
+      placeholder.textContent = `${url} — ${e.message || I18N[LANGUE].erreur_generique}`;
+      placeholder.classList.add("erreur");
+    }
+  }
+}
+</script>
+</body>
+</html>
