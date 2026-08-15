@@ -11,7 +11,7 @@ self-hostable, deployable on Vercel.
 
 ## Try it online
 
-*(to be filled in after the Vercel deployment — Task 12)*
+**https://synopsis-jet.vercel.app** — no key needed to reach the demo, but `/resumer` requires a BYOK key (this deployment has no free instance-level key configured) ; paste yours in "Advanced options".
 
 ## Installation (self-hosted)
 

@@ -11,7 +11,7 @@ instantané, auto-hébergeable, déployable sur Vercel.
 
 ## Essayer en ligne
 
-*(à compléter après le déploiement Vercel — Task 12)*
+**https://synopsis-jet.vercel.app** — sans clé, la démo publique répond mais `/resumer` demande une clé BYOK (aucune clé d'instance gratuite n'est configurée sur ce déploiement) ; colle la tienne dans « Options avancées ».
 
 ## Installation (auto-hébergée)
 
