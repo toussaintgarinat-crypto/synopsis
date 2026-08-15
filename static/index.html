@@ -410,6 +410,7 @@ const I18N_SYNOPSIS = {
     erreur_generique: "Une erreur est survenue.",
     b_qa: "Poser la question", l_qa_placeholder: "Une question sur cette vidéo ?",
     b_html: "⬇️ Télécharger en HTML", b_md: "⬇️ Télécharger en Markdown", b_pdf: "🖨️ Imprimer / Enregistrer en PDF",
+    bandeau_pas_de_cle: "Cette instance n'a pas de clé LLM gratuite configurée par défaut — ouvre « Options avancées » et renseigne ta propre clé (BYOK) pour générer un résumé.",
   },
   en: {
     l_url: "YouTube video URL", l_langue_resume: "Summary language",
@@ -419,6 +420,7 @@ const I18N_SYNOPSIS = {
     erreur_generique: "Something went wrong.",
     b_qa: "Ask", l_qa_placeholder: "A question about this video?",
     b_html: "⬇️ Download as HTML", b_md: "⬇️ Download as Markdown", b_pdf: "🖨️ Print / Save as PDF",
+    bandeau_pas_de_cle: "This instance has no free LLM key configured by default — open \"Advanced options\" and enter your own key (BYOK) to generate a summary.",
   },
 };
 Object.assign(I18N.fr, I18N_SYNOPSIS.fr);
@@ -449,7 +451,12 @@ function md(txt) {
 async function resumerUne(url) {
   const body = { url, langue: document.getElementById("langue_resume").value, llm: configLLMActuelle() };
   const r = await fetch("/resumer", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
-  const d = await r.json();
+  let d;
+  try {
+    d = await r.json();
+  } catch (e) {
+    throw new Error(I18N[LANGUE].erreur_generique);
+  }
   if (!r.ok) throw new Error(d.detail || I18N[LANGUE].erreur_generique);
   return d;
 }
@@ -554,11 +561,18 @@ document.getElementById("form-resumer").addEventListener("submit", async (ev) =>
   err.textContent = "";
   const zone = document.getElementById("resultats");
   zone.innerHTML = "";
+  const btn = ev.target.querySelector('button[type="submit"]');
+  const texteOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "…";
   try {
     const d = await resumerUne(document.getElementById("url").value.trim());
     zone.appendChild(blocResultat(d));
   } catch (e) {
     err.textContent = e.message || I18N[LANGUE].erreur_generique;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = texteOriginal;
   }
 });
 
@@ -580,6 +594,22 @@ async function resumerPlusieurs() {
     }
   }
 }
+
+async function verifierConfigInstance() {
+  try {
+    const r = await fetch("/sante");
+    const d = await r.json();
+    if (!d.resume_configure) {
+      const bandeau = document.createElement("p");
+      bandeau.className = "sous";
+      bandeau.style.cssText = "background:#2a2350; border:1px solid var(--accent); border-radius:8px; padding:10px 14px; margin:0 0 14px;";
+      bandeau.textContent = I18N[LANGUE].bandeau_pas_de_cle;
+      const panel = document.querySelector(".panel");
+      panel.parentNode.insertBefore(bandeau, panel);
+    }
+  } catch (e) { /* silencieux : pas bloquant */ }
+}
+verifierConfigInstance();
 </script>
 </body>
 </html>
