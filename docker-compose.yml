@@ -1,0 +1,15 @@
+services:
+  synopsis:
+    build: .
+    image: synopsis
+    ports: ["8420:8420"]
+    environment:
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      - OPENCODE_GO_API_KEY=${OPENCODE_GO_API_KEY:-}
+      - OPENCODE_GO_BASE_URL=${OPENCODE_GO_BASE_URL:-https://opencode.ai/zen/go/v1}
+      - OPENCODE_GO_MODEL=${OPENCODE_GO_MODEL:-deepseek-v4-pro}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
