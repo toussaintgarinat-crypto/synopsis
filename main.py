@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -43,6 +43,11 @@ class QaBody(BaseModel):
     llm: Optional[dict] = None
 
 
+class ModelesBody(BaseModel):
+    cle: str
+    base_url: str = ""
+
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def accueil():
     return Path(__file__).parent.joinpath("static/index.html").read_text(encoding="utf-8")
@@ -61,13 +66,13 @@ def sante():
             "resume_configure": bool(fournisseur), "fournisseur_actif": fournisseur}
 
 
-@app.get("/modeles", tags=["synopsis"])
-def modeles(cle: str = Query(...), base_url: str = Query("")):
+@app.post("/modeles", tags=["synopsis"])
+def modeles(body: ModelesBody):
     """Liste les modèles disponibles pour une API OpenAI-compatible (BYOK)."""
-    cle = cle.strip()
+    cle = body.cle.strip()
     if not cle:
         raise HTTPException(422, "Une clé API est nécessaire.")
-    base = (base_url or "").strip()
+    base = (body.base_url or "").strip()
     if not base:
         raise HTTPException(422, "Une URL de base est nécessaire.")
     try:
@@ -84,7 +89,8 @@ def resumer(body: ResumerBody):
     except extractor.ErreurExtraction as e:
         raise HTTPException(422, str(e))
 
-    chunks = chunker.chunk_transcript(donnees["transcript"])
+    contexte_max = (body.llm or {}).get("contexte_max")
+    chunks = chunker.chunk_transcript(donnees["transcript"], max_tokens=contexte_max or chunker.DEFAULT_MAX_TOKENS)
     if not chunks:
         raise HTTPException(422, "Transcript vide — impossible de résumer.")
 

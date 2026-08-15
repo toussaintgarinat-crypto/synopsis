@@ -157,7 +157,7 @@
       <details class="avance">
         <summary data-t="l_options">Options avancées</summary>
         <label style="margin-top:16px;" data-t="l_byok">Configuration IA personnelle</label>
-        <p class="sous" style="margin:4px 0 8px;" data-t="l_byok_desc">Votre clé est sauvegardée localement dans votre navigateur. Elle n'est transmise au serveur qu'au moment du résumé.</p>
+        <p class="sous" style="margin:4px 0 8px;" data-t="l_byok_desc">Votre clé est sauvegardée localement dans votre navigateur. Elle n'est transmise au serveur que pour charger les modèles ou générer un résumé.</p>
         <label data-t="l_fournisseur">Fournisseur</label>
         <select id="llm_fournisseur">
           <option value="openrouter">OpenRouter</option>
@@ -213,7 +213,7 @@ const I18N = {
     pitch: "Résumé de vidéo YouTube par IA — transcript natif, sans téléchargement ni transcription audio. Chapitres, points clés, gratuit et instantané.",
     l_options: "Options avancées",
     l_byok: "Configuration IA personnelle",
-    l_byok_desc: "Votre clé est sauvegardée localement dans votre navigateur. Elle n'est transmise au serveur qu'au moment du résumé.",
+    l_byok_desc: "Votre clé est sauvegardée localement dans votre navigateur. Elle n'est transmise au serveur que pour charger les modèles ou générer un résumé.",
     l_fournisseur: "Fournisseur",
     l_base_url: "URL de l'API",
     l_cle: "Clé API",
@@ -233,7 +233,7 @@ const I18N = {
     pitch: "AI YouTube video summaries — native transcript, no download, no audio transcription. Chapters, key points, free and instant.",
     l_options: "Advanced options",
     l_byok: "Personal AI configuration",
-    l_byok_desc: "Your key is saved locally in your browser. It is only sent to the server when a summary is requested.",
+    l_byok_desc: "Your key is saved locally in your browser. It's only sent to the server to load models or generate a summary.",
     l_fournisseur: "Provider",
     l_base_url: "API URL",
     l_cle: "API key",
@@ -298,7 +298,8 @@ async function chargerModeles() {
   }
   statusEl.textContent = I18N[LANGUE].modeles_chargement;
   try {
-    const r = await fetch(`/modeles?base_url=${encodeURIComponent(base_url)}&cle=${encodeURIComponent(cle)}`);
+    const r = await fetch("/modeles", { method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ base_url, cle }) });
     if (!r.ok) throw new Error();
     const d = await r.json();
     const select = document.getElementById("llm_modele_select");
