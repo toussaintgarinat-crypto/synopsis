@@ -60,6 +60,13 @@ def test_sante():
     assert r.json()["service"] == "synopsis"
 
 
+def test_sante_expose_la_duree_max():
+    """Le front lit cette valeur pour afficher/valider la limite sans la dupliquer
+    en dur côté client (source unique de vérité : main.DUREE_MAX_MINUTES)."""
+    r = client.get("/sante")
+    assert r.json()["duree_max_minutes"] == main.DUREE_MAX_MINUTES
+
+
 def test_modeles_sans_cle_renvoie_422():
     r = client.post("/modeles", json={"cle": "", "base_url": "https://api.exemple.com/v1"})
     assert r.status_code == 422
@@ -87,6 +94,52 @@ def test_resumer_url_invalide(mock_transcript):
     r = client.post("/resumer", json={"url": "pas-une-url", "langue": "Français"})
     assert r.status_code == 422
     assert "invalide" in r.json()["detail"]
+
+
+def _transcript_trop_long(minutes):
+    return {
+        "video_id": "dQw4w9WgXcQ",
+        "transcript": [{"text": "mot", "start": 0.0, "duration": minutes * 60}],
+        "langue": "fr",
+        "titre": "Vidéo très longue",
+        "duree_minutes": minutes,
+    }
+
+
+@patch("main.llm.completer")
+@patch("main.extractor.transcript_youtube", return_value=_transcript_trop_long(45.0))
+def test_resumer_video_trop_longue_renvoie_422_sans_appeler_le_llm(mock_transcript, mock_completer):
+    """Au-delà de DUREE_MAX_MINUTES, le pipeline (chunking + N appels LLM) dépasserait
+    la limite de 60s de la fonction serverless Vercel — on doit couper avant le
+    premier appel LLM (payant, sur la clé d'instance), pas après un timeout muet."""
+    r = client.post("/resumer", json={"url": "https://youtu.be/dQw4w9WgXcQ", "langue": "Français"})
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert "45" in detail
+    assert str(main.DUREE_MAX_MINUTES) in detail
+    assert extractor.URL_VERSION_LOCALE in detail
+    mock_completer.assert_not_called()
+
+
+@patch("main.llm.completer", return_value="## 📝 Résumé Détaillé\nContenu résumé.")
+@patch("main.extractor.transcript_youtube", return_value=_transcript_trop_long(main.DUREE_MAX_MINUTES))
+def test_resumer_video_exactement_a_la_limite_passe(mock_transcript, mock_completer):
+    """La limite est une borne haute inclusive : une vidéo pile à DUREE_MAX_MINUTES
+    ne doit pas être rejetée."""
+    r = client.post("/resumer", json={"url": "https://youtu.be/dQw4w9WgXcQ", "langue": "Français"})
+    assert r.status_code == 200
+
+
+@patch("main.extractor.transcript_youtube",
+       side_effect=extractor.ErreurExtraction(
+           f"Aucun sous-titre disponible pour cette vidéo. Utilise la version locale : "
+           f"{extractor.URL_VERSION_LOCALE}"))
+def test_resumer_propage_le_message_extractor_sans_le_tronquer(mock_transcript):
+    """Le message construit par extractor.py (qui pointe vers la version locale, voir
+    test_extractor.py) doit ressortir intact dans le detail HTTP, pas réécrit ou coupé."""
+    r = client.post("/resumer", json={"url": "https://youtu.be/dQw4w9WgXcQ", "langue": "Français"})
+    assert r.status_code == 422
+    assert extractor.URL_VERSION_LOCALE in r.json()["detail"]
 
 
 @patch("main.fusion.fusionner", side_effect=main.llm.ErreurLLM("Modèle gratuit saturé — réessaie.", code=429))

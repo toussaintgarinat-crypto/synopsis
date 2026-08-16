@@ -17,6 +17,12 @@ from youtube_transcript_api._errors import (
 
 LANGUES_PAR_DEFAUT = ["fr", "en", "es", "de", "it", "pt"]
 
+URL_VERSION_LOCALE = "https://github.com/toussaintgarinat-crypto/youtube-summarizer"
+_SUFFIXE_PAS_DE_TRANSCRIPT = (
+    " Cette instance en ligne ne fait pas de transcription audio (Whisper) — "
+    f"pour les vidéos sans sous-titres, utilise la version locale : {URL_VERSION_LOCALE}"
+)
+
 
 class ErreurExtraction(Exception):
     """Erreur explicite — URL invalide ou transcript indisponible."""
@@ -72,7 +78,7 @@ def transcript_youtube(url: str, langues: list[str] | None = None) -> dict:
             break
         except TranscriptsDisabled:
             # Captions are disabled globally on this video — fail fast
-            raise ErreurExtraction("Les sous-titres sont désactivés sur cette vidéo.")
+            raise ErreurExtraction("Les sous-titres sont désactivés sur cette vidéo." + _SUFFIXE_PAS_DE_TRANSCRIPT)
         except (NoTranscriptFound, CouldNotRetrieveTranscript):
             # This language not available, try the next one
             continue
@@ -84,10 +90,11 @@ def transcript_youtube(url: str, langues: list[str] | None = None) -> dict:
         # No language from the requested list had a transcript
         raise ErreurExtraction(
             f"Aucun sous-titre disponible dans les langues demandées ({', '.join(langues)})."
+            + _SUFFIXE_PAS_DE_TRANSCRIPT
         )
 
     if not brut:
-        raise ErreurExtraction("Aucun sous-titre disponible pour cette vidéo.")
+        raise ErreurExtraction("Aucun sous-titre disponible pour cette vidéo." + _SUFFIXE_PAS_DE_TRANSCRIPT)
 
     transcript = [{"text": e.text, "start": e.start, "duration": e.duration} for e in brut]
     derniere = transcript[-1]

@@ -67,6 +67,21 @@ def test_transcript_youtube_sous_titres_desactives(mock_api_cls):
 
 
 @patch("extractor.YouTubeTranscriptApi")
+def test_transcript_youtube_sous_titres_desactives_mentionne_version_locale(mock_api_cls):
+    """Sans transcript, aucun repli Whisper n'existe sur cette instance — le message
+    doit pointer explicitement vers la version locale qui en a un, pas juste dire
+    non sans piste de sortie."""
+    from youtube_transcript_api._errors import TranscriptsDisabled
+
+    mock_api = MagicMock()
+    mock_api.fetch.side_effect = TranscriptsDisabled("dQw4w9WgXcQ")
+    mock_api_cls.return_value = mock_api
+
+    with pytest.raises(extractor.ErreurExtraction, match=extractor.URL_VERSION_LOCALE):
+        extractor.transcript_youtube("https://youtu.be/dQw4w9WgXcQ", langues=["fr"])
+
+
+@patch("extractor.YouTubeTranscriptApi")
 def test_transcript_youtube_aucune_langue_disponible(mock_api_cls):
     """Aucune des langues demandées n'a de sous-titre (mais pas globalement désactivés)."""
     from youtube_transcript_api._errors import NoTranscriptFound

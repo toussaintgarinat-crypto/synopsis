@@ -27,6 +27,14 @@ import llm
 
 app = FastAPI(title="Synopsis", version="0.1.0")
 
+# Au-delà, le pipeline (extraction + N appels LLM séquentiels + fusion) dépasse la
+# limite de 60s d'une fonction serverless Vercel — mesuré empiriquement avec le
+# modèle gratuit d'instance : ~30-34s par appel LLM sur un chunk plein (12000
+# tokens), donc dès 2 chunks + fusion (3 appels) le budget est dépassé à coup sûr.
+# Un seul chunk (~12000 tokens, atteint vers 30-40 min de vidéo selon la densité de
+# parole) reste sous la limite. On coupe à 30 min pour rester dans la zone sûre.
+DUREE_MAX_MINUTES = 30
+
 _cors = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()] or ["*"]
 app.add_middleware(CORSMiddleware, allow_origins=_cors, allow_methods=["*"], allow_headers=["*"])
 
@@ -63,7 +71,8 @@ def sante():
     elif llm.OPENAI_API_KEY:
         fournisseur = "openai"
     return {"statut": "ok", "service": "synopsis", "version": app.version,
-            "resume_configure": bool(fournisseur), "fournisseur_actif": fournisseur}
+            "resume_configure": bool(fournisseur), "fournisseur_actif": fournisseur,
+            "duree_max_minutes": DUREE_MAX_MINUTES}
 
 
 @app.post("/modeles", tags=["synopsis"])
@@ -90,6 +99,14 @@ def resumer(body: ResumerBody):
         donnees = extractor.transcript_youtube(body.url)
     except extractor.ErreurExtraction as e:
         raise HTTPException(422, str(e))
+
+    if donnees["duree_minutes"] > DUREE_MAX_MINUTES:
+        raise HTTPException(422,
+            f"Vidéo trop longue pour cette instance en ligne "
+            f"({donnees['duree_minutes']:.0f} min, limite {DUREE_MAX_MINUTES} min) — "
+            f"au-delà, le résumé dépasse la limite de temps du serveur (Vercel, 60s) et "
+            f"échoue silencieusement. Utilise la version locale (Whisper, sans limite de "
+            f"durée) : {extractor.URL_VERSION_LOCALE}")
 
     contexte_max_brut = (body.llm or {}).get("contexte_max")
     contexte_max = chunker.DEFAULT_MAX_TOKENS

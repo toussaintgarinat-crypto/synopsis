@@ -74,6 +74,12 @@
   .recit .titre-approfondi { font-weight: 600; color: var(--accent, #b8a46a); margin: 0 0 12px; }
   .badge { display: inline-block; font-size: .72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; margin-left: 8px; }
   .erreur { color: var(--danger); font-size: .9rem; margin-top: 8px; }
+  .limites {
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; margin: 0 0 18px; font-size: .84rem; color: var(--muted); line-height: 1.5;
+  }
+  .limites ul { margin: 4px 0 6px; padding-left: 20px; }
+  .limites a { color: var(--accent2); }
   footer.mentions { color: var(--muted); font-size: .78rem; text-align: center; margin-top: 30px; }
   #resultat { display: none; }
   #llm_base_url[readonly] { opacity: .7; }
@@ -138,6 +144,17 @@
     </div>
   </header>
   <p class="pitch" data-t="pitch">Résumé de vidéo YouTube par IA — transcript natif, sans téléchargement ni transcription audio. Chapitres, points clés, gratuit et instantané.</p>
+
+  <div class="limites">
+    <strong data-t="limites_titre">Limites de cette version en ligne</strong>
+    <ul>
+      <li data-t="limites_soustitres">Fonctionne uniquement si la vidéo a des sous-titres YouTube (manuels ou auto-générés) — aucune transcription audio (Whisper) ici.</li>
+      <li id="limites-duree-fr">Vidéos jusqu'à ~<span class="limites-duree-val">30</span> minutes — au-delà, le résumé dépasse la limite de temps du serveur et échoue.</li>
+      <li id="limites-duree-en" style="display:none;">Videos up to ~<span class="limites-duree-val">30</span> minutes — beyond that, the summary exceeds the server's time limit and fails.</li>
+    </ul>
+    <p id="limites-local-fr" style="margin:6px 0 0;">Vidéo sans sous-titres, ou plus longue que la limite ci-dessus ? Utilise <a href="https://github.com/toussaintgarinat-crypto/youtube-summarizer" target="_blank" rel="noopener">la version locale</a> — transcription Whisper, upload de fichiers audio/vidéo, génération d'images, export, et sans limite de durée.</p>
+    <p id="limites-local-en" style="margin:6px 0 0; display:none;">No captions, or longer than the limit above? Use <a href="https://github.com/toussaintgarinat-crypto/youtube-summarizer" target="_blank" rel="noopener">the local version</a> — Whisper transcription, audio/video file upload, image generation, export, and no duration limit.</p>
+  </div>
 
   <div class="panel">
     <form id="form-resumer">
@@ -395,6 +412,10 @@ function setLangue(l) {
     const cle = el.getAttribute("data-t");
     if (I18N[l][cle]) el.textContent = I18N[l][cle];
   });
+  document.getElementById("limites-duree-fr").style.display = l === "fr" ? "" : "none";
+  document.getElementById("limites-duree-en").style.display = l === "en" ? "" : "none";
+  document.getElementById("limites-local-fr").style.display = l === "fr" ? "" : "none";
+  document.getElementById("limites-local-en").style.display = l === "en" ? "" : "none";
   const hasConfig = !!localStorage.getItem(LLM_STORAGE_KEY);
   document.getElementById("llm-status").textContent = hasConfig ? I18N[l].l_llm_sauvegarde : I18N[l].l_llm_vide;
   const nbModeles = document.getElementById("llm_modele_select").options.length - 1;
@@ -411,6 +432,8 @@ const I18N_SYNOPSIS = {
     b_qa: "Poser la question", l_qa_placeholder: "Une question sur cette vidéo ?",
     b_html: "⬇️ Télécharger en HTML", b_md: "⬇️ Télécharger en Markdown", b_pdf: "🖨️ Imprimer / Enregistrer en PDF",
     bandeau_pas_de_cle: "Cette instance n'a pas de clé LLM gratuite configurée par défaut — ouvre « Options avancées » et renseigne ta propre clé (BYOK) pour générer un résumé.",
+    limites_titre: "Limites de cette version en ligne",
+    limites_soustitres: "Fonctionne uniquement si la vidéo a des sous-titres YouTube (manuels ou auto-générés) — aucune transcription audio (Whisper) ici.",
   },
   en: {
     l_url: "YouTube video URL", l_langue_resume: "Summary language",
@@ -421,6 +444,8 @@ const I18N_SYNOPSIS = {
     b_qa: "Ask", l_qa_placeholder: "A question about this video?",
     b_html: "⬇️ Download as HTML", b_md: "⬇️ Download as Markdown", b_pdf: "🖨️ Print / Save as PDF",
     bandeau_pas_de_cle: "This instance has no free LLM key configured by default — open \"Advanced options\" and enter your own key (BYOK) to generate a summary.",
+    limites_titre: "Limits of this online version",
+    limites_soustitres: "Only works if the video has YouTube captions (manual or auto-generated) — no audio transcription (Whisper) here.",
   },
 };
 Object.assign(I18N.fr, I18N_SYNOPSIS.fr);
@@ -599,6 +624,9 @@ async function verifierConfigInstance() {
   try {
     const r = await fetch("/sante");
     const d = await r.json();
+    if (d.duree_max_minutes) {
+      document.querySelectorAll(".limites-duree-val").forEach(el => el.textContent = d.duree_max_minutes);
+    }
     if (!d.resume_configure) {
       const bandeau = document.createElement("p");
       bandeau.className = "sous";
